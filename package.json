@@ -1,0 +1,15 @@
+{
+	"name": "Hoggie",
+	"version": "0.0.1",
+	"dependencies": {
+		"express": "2.5.5",
+		"jade": "0.16.4",
+		"stylus": "0.19.0",
+		"nib": "0.2.0",
+		"socket.io": "0.9.1-1"
+	},
+	"engines": {
+		"node": "6.11.1",
+		"npm": "5.4.0"
+	}
+}
