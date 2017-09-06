@@ -35,100 +35,75 @@ io.sockets.on('connection', function (socket) {
 	if (!game.player1.isInUse()) {
 		game.player1.assignID(socket.id);
 		// inform the client
-		io.sockets.socket(socket.id).emit("player_id", {
-			playerNumber: game.player1.getNumber()
+		io.to(socket.id).emit("player_id", {
+			playerNumber: game.player1.getNumber(),
+			currentPlayer: game.currentPlayer
 		});
 	} else {
 		game.player2.assignID(socket.id);
 		// inform the client
-		io.sockets.socket(socket.id).emit("player_id", {
-			playerNumber: game.player2.getNumber()
+		io.to(socket.id).emit("player_id", {
+			playerNumber: game.player2.getNumber(),
+			currentPlayer: game.currentPlayer
 		});
 	}
 
 	// if both players exist, we can play!
 	if (game.player1.isInUse() && game.player2.isInUse()) {
-		io.sockets.socket(game.player1.getID()).emit("ready_to_play", {
+		io.to(game.player1.getID()).emit("ready_to_play", {
+			theGame: game,
 			currentPlayer: game.currentPlayer.getNumber()
 		});
-		io.sockets.socket(game.player2.getID()).emit("ready_to_play", {
+		io.to(game.player2.getID()).emit("ready_to_play", {
+			theGame: game,
 			currentPlayer: game.currentPlayer.getNumber()
 		});
 	}
 
-	// called when a client clicks one of the spaces on the game board
-	socket.on("clicked", function (data) {
-		var player, game, endTurnResult;
+	// called when a client enters a number to roll
+	socket.on("user_rolls", function (data) {
+		var game = hoggie.findGameForPlayerID(socket.id);
+		var results = 0
 
-		// get the game for this client
-		game = hoggie.findGameForPlayerID(socket.id);
-
-		// is this a valid move?
-		// if (!hoggie.moveRequest(game, socket.id, data.spaceID)) {
-		// 	return;
-		// }
-		// it's a valid move, so let's inform the clients
-		var results = []
-		for (x = 0; x < data.numRolls; x++) {
-			results[x] = Math.round(Math.random() * 6) + 1
+		if (data.numRolls == 0) {
+			game = hoggie.freeBacon(game);
+		}
+		else {
+			game = hoggie.rollDie(game, data.numRolls);
 		}
 
-		io.sockets.socket(game.player1.getID()).emit("space_claimed", {
-			numRolls: data.numRolls,
-			dice_array: results
-
+		io.to(game.player1.getID()).emit("user_rolled", {
+			theGame: game
 		});
-		io.sockets.socket(game.player2.getID()).emit("space_claimed", {
-			numRolls: data.numRolls,
-			dice_array: results
+		io.to(game.player2.getID()).emit("user_rolled", {
+			theGame: game
 		});
 
-		// end the turn, checking the result
-		endTurnResult = hoggie.endTurn(game);
-		if (endTurnResult.winner) {
+		var gameOver = hoggie.isOver(game);	
+		if (gameOver) {
 			// if there's a winner, send the info to the clients
-			io.sockets.socket(game.player1.getID()).emit("end_game", {
-				winner: endTurnResult.winner
+			io.to(game.player1.getID()).emit("end_game", {
+				winner: gameOver
 			});
-			io.sockets.socket(game.player2.getID()).emit("end_game", {
-				winner: endTurnResult.winner
+			io.to(game.player2.getID()).emit("end_game", {
+				winner: gameOver
 			});
-		} else if (endTurnResult.stalemate) {
-			// if there's a stalemate, send the info to the clients
-			io.sockets.socket(game.player1.getID()).emit("end_game", {
-				stalemate: endTurnResult.stalemate
-			});
-			io.sockets.socket(game.player2.getID()).emit("end_game", {
-				stalemate: endTurnResult.stalemate
-			});
-		}
+		} 
 	});
 
 	socket.on("play_again", function () {
 		var game, player;
-
-		// get the game for this client
 		game = hoggie.findGameForPlayerID(socket.id);
-
-		// find the player who said they wanted to play again
 		player = hoggie.findPlayerInGame(game, socket.id);
-		// set the player to ready to play
 		player.setReadyToStartGame(true);
-		// signal to the client we're waiting to get the board ready
-		io.sockets.socket(player.getID()).emit("waiting_for_player", {
-			// we're hard coding player1 === X... is that okay?
-			xScore: game.player1Score,
-			oScore: game.player2Score
-		});
+		io.to(player.getID()).emit("waiting_for_player");
 
-		// create a new game if both players are ready
 		if (game.player1.isReadyToStartGame() && game.player2.isReadyToStartGame()) {
 			game = hoggie.newGame(game);
-			// and send the message to the clients
-			io.sockets.socket(game.player1.getID()).emit("ready_to_play", {
+			io.to(game.player1.getID()).emit("ready_to_play", {
 				currentPlayer: game.currentPlayer.getNumber()
 			});
-			io.sockets.socket(game.player2.getID()).emit("ready_to_play", {
+			io.to(game.player2.getID()).emit("ready_to_play", {
 				currentPlayer: game.currentPlayer.getNumber()
 			});
 		}
@@ -136,27 +111,19 @@ io.sockets.on('connection', function (socket) {
 
 	socket.on("disconnect", function () {
 		var game;
-
-		// get the game for this client
 		game = hoggie.findGameForPlayerID(socket.id);
-
-		// remove the player from the game
 		game = hoggie.removePlayerFromGame(game, socket.id);
-
-		// reset the scores
 		game.player1Score = 0;
 		game.player2Score = 0;
-
-		// inform the other player (if exists) that the game has reset
 		if (game.player1.isInUse()) {
-			io.sockets.socket(game.player1.getID()).emit("waiting_for_player", {
+			io.to(game.player1.getID()).emit("waiting_for_player", {
 				// we're hard coding player1 === X... is that okay?
 				xScore: game.player1Score,
 				oScore: game.player2Score
 			});
 		}
 		if (game.player2.isInUse()) {
-			io.sockets.socket(game.player2.getID()).emit("waiting_for_player", {
+			io.to(game.player2.getID()).emit("waiting_for_player", {
 				// we're hard coding player1 === X... is that okay?
 				xScore: game.player1Score,
 				oScore: game.player2Score

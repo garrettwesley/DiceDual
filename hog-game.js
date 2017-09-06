@@ -13,14 +13,61 @@ Hoggie.prototype.createGame = function() {
 	game.player2 = new Player(2);
 	game.player2Score = 0;
 
+	game.currentTurn = game.player1;
+
 	game.playerWhoHasNext = game.player1;
 	game.currentPlayer = game.playerWhoHasNext;
-	game.board = {};
 
 	this.gameData.games.push(game);
 
 	return game;
 };
+
+Hoggie.prototype.freeBacon = function(game) {
+	if(game.currentTurn == game.player1){
+		var opp = game.player2Score
+		game.player1Score += Math.max(Math.floor(opp / 10) , opp % 10) + 1;
+		game.currentTurn = game.player2;
+	}
+	else {
+		var opp = game.player1Score
+		game.player2Score += Math.max(Math.floor(opp / 10) , opp % 10) + 1;
+		game.currentTurn = game.player1;
+	}
+	
+	return game;
+}
+
+
+Hoggie.prototype.rollDie = function(game, numRolls) {
+	results = 0;
+	for (i = 0; i < numRolls; i++) {
+		var temp = Math.round(Math.random() * 6) + 1
+		if(temp == 1){
+			results = 1;
+			break;
+		}
+		else{
+			results += temp
+		}
+	}
+
+	if (game.currentTurn == game.player1){
+		game.player1Score += results;
+		game.currentTurn = game.player2;
+	} else{
+		game.player2Score += results;
+		game.currentTurn = game.player1;
+	}
+	if(game.player2Score > 1 && game.player1Score > 1)
+		if(game.player2Score % game.player1Score == 0 || game.player1Score % game.player2Score == 0 ){
+			var temp = game.player2Score
+			game.player2Score = game.player1Score;
+			game.player1Score = temp;
+		}
+
+	return game;
+}
 
 Hoggie.prototype.newGame = function(game) {
 	// reset the game, then return it back
@@ -44,6 +91,7 @@ Hoggie.prototype.removePlayerFromGame = function(game, playerID) {
 	// return a new game
 	return this.newGame(game);
 };
+
 
 Hoggie.prototype.findAvailableGame = function() {
 	var i, game;
@@ -90,8 +138,26 @@ Hoggie.prototype.findPlayerInGame = function(game, playerID) {
 	return player;
 };
 
-Hoggie.prototype.rollRequest = function(game, playerID, numRolls) {
-	return numRolls > -1;
+Hoggie.prototype.isOver = function(game) {
+	if(game.player1Score > 99){
+		game.currentPlayer = null;
+		game.currentTurn = null;
+		game.player1.setReadyToStartGame(false);
+		game.player2.setReadyToStartGame(false);
+
+		return game.player1;
+	}
+	else if (game.player2Score > 99) {
+		game.currentPlayer = null;
+		game.currentTurn = null;		
+		game.player1.setReadyToStartGame(false);
+		game.player2.setReadyToStartGame(false);
+
+		return game.player2
+	}
+	else {
+		return null
+	}
 };
 
 
