@@ -8,4 +8,4 @@ A realtime multiplayer game based off of Hog from [cs61a.org](https://cs61a.org/
 - JQuery
 
 ## Demo
-[Hoggie.io](https://hoggieapp.herokuapp.com)
+[Demo](https://dicedual.herokuapp.com)
